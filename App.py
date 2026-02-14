@@ -3,18 +3,22 @@ Equity Research PDF Analyzer Dashboard
 """
 
 import streamlit as st
+import subprocess
+import sys
+
+# Install PyMuPDF if not available
+try:
+    import fitz
+except ImportError:
+    st.info("Installing PDF library... Please wait.")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "PyMuPDF", "-q"])
+    import fitz
+
 import pandas as pd
 import re
 import json
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-
-# PDF library - using PyMuPDF (fitz) which works reliably on Streamlit Cloud
-try:
-    import fitz  # PyMuPDF
-    PDF_LIBRARY = "PyMuPDF"
-except ImportError:
-    PDF_LIBRARY = None
+from typing import List, Dict, Any
 
 
 @dataclass
@@ -32,7 +36,6 @@ class ResearchReport:
     free_float: float = 0.0
     week_52_high: float = 0.0
     week_52_low: float = 0.0
-    sector: str = ""
     key_highlights: List[str] = field(default_factory=list)
     risks: List[str] = field(default_factory=list)
     valuation_metrics: Dict[str, Any] = field(default_factory=dict)
@@ -49,19 +52,11 @@ def extract_number(text):
 
 
 def extract_text_from_pdf(pdf_file):
-    """Extract text using PyMuPDF"""
-    all_text = ""
-    
-    # Read file bytes
     pdf_bytes = pdf_file.read()
-    
-    # Open with PyMuPDF
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    
+    all_text = ""
     for i, page in enumerate(doc):
-        text = page.get_text()
-        all_text += f"\n--- Page {i+1} ---\n{text}"
-    
+        all_text += f"\n--- Page {i+1} ---\n{page.get_text()}"
     doc.close()
     return all_text
 
@@ -156,12 +151,7 @@ def parse_report(text):
 def main():
     st.set_page_config(page_title="Stock Research Analyzer", page_icon="📊", layout="wide")
     st.title("📊 Equity Research PDF Analyzer")
-    
-    if PDF_LIBRARY:
-        st.caption(f"✅ Using: {PDF_LIBRARY}")
-    else:
-        st.error("❌ PDF library not found")
-        st.stop()
+    st.caption("✅ PDF Library: PyMuPDF")
     
     uploaded = st.file_uploader("Upload Research PDF", type=['pdf'])
     
