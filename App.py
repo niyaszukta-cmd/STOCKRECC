@@ -5,26 +5,16 @@ Equity Research PDF Analyzer Dashboard
 import streamlit as st
 import pandas as pd
 import re
-import io
 import json
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 
-# PDF library import with fallback
-PDF_LIBRARY = None
+# PDF library - using PyMuPDF (fitz) which works reliably on Streamlit Cloud
 try:
-    import pdfplumber
-    PDF_LIBRARY = "pdfplumber"
+    import fitz  # PyMuPDF
+    PDF_LIBRARY = "PyMuPDF"
 except ImportError:
-    try:
-        from pypdf import PdfReader
-        PDF_LIBRARY = "pypdf"
-    except ImportError:
-        try:
-            import PyPDF2
-            PDF_LIBRARY = "PyPDF2"
-        except ImportError:
-            PDF_LIBRARY = None
+    PDF_LIBRARY = None
 
 
 @dataclass
@@ -59,21 +49,20 @@ def extract_number(text):
 
 
 def extract_text_from_pdf(pdf_file):
+    """Extract text using PyMuPDF"""
     all_text = ""
     
-    if PDF_LIBRARY == "pdfplumber":
-        with pdfplumber.open(pdf_file) as pdf:
-            for i, page in enumerate(pdf.pages):
-                all_text += f"\n--- Page {i+1} ---\n{page.extract_text() or ''}"
-    elif PDF_LIBRARY == "pypdf":
-        from pypdf import PdfReader
-        for i, page in enumerate(PdfReader(pdf_file).pages):
-            all_text += f"\n--- Page {i+1} ---\n{page.extract_text() or ''}"
-    elif PDF_LIBRARY == "PyPDF2":
-        import PyPDF2
-        for i, page in enumerate(PyPDF2.PdfReader(pdf_file).pages):
-            all_text += f"\n--- Page {i+1} ---\n{page.extract_text() or ''}"
+    # Read file bytes
+    pdf_bytes = pdf_file.read()
     
+    # Open with PyMuPDF
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    
+    for i, page in enumerate(doc):
+        text = page.get_text()
+        all_text += f"\n--- Page {i+1} ---\n{text}"
+    
+    doc.close()
     return all_text
 
 
@@ -171,7 +160,7 @@ def main():
     if PDF_LIBRARY:
         st.caption(f"✅ Using: {PDF_LIBRARY}")
     else:
-        st.error("❌ Install PDF library: pip install pdfplumber")
+        st.error("❌ PDF library not found")
         st.stop()
     
     uploaded = st.file_uploader("Upload Research PDF", type=['pdf'])
@@ -243,6 +232,7 @@ def main():
                 
             except Exception as e:
                 st.error(f"Error: {e}")
+                st.exception(e)
     else:
         st.info("👆 Upload PDF to start")
 
