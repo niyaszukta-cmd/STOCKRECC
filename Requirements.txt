@@ -1,5 +1,5 @@
 streamlit
-pandas
-plotly
-pdfplumber
-pypdf
+   pandas
+   plotly
+   pdfplumber
+   pypdf
